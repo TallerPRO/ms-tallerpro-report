@@ -2,7 +2,7 @@
 
 > **Estado: provisorio / en construcción.** Este README se irá completando a medida que avance el proyecto (faltan tests, CI/CD y detalles de despliegue final).
 
-Microservicio de KPIs operativos y panel de reportería para **TallerPro**. Consume eventos del tópico Kafka `jobs.events` (fuente de verdad de `ms-tallerpro-jobs`) y expone endpoints de solo lectura para el panel de operaciones (rol **Admin**).
+Microservicio de KPIs operativos y panel de reportería para **TallerPro**. Consume eventos del tópico Kafka `jobs.events` (fuente de verdad de `ms-tallerpro-jobs`) y expone endpoints de solo lectura para el panel de operaciones (roles **Admin** y **JefeTaller**).
 
 ## Qué hace
 
@@ -11,7 +11,7 @@ Microservicio de KPIs operativos y panel de reportería para **TallerPro**. Cons
   - Órdenes por hora por taller (ventana deslizante).
   - Tiempo de permanencia promedio (`RECEPCIONADA` → `ENTREGADA`) por taller.
   - Órdenes activas por estado y por taller, en tiempo real.
-- Expone endpoints REST de solo lectura para el panel (RF-14), protegidos por JWT de Azure AD (rol Admin).
+- Expone endpoints REST de solo lectura para el panel (RF-14), protegidos por JWT de Azure AD (roles Admin y JefeTaller).
 - Cumple el RNF de desfase máximo de 5s entre el evento Kafka y su reflejo en el panel (log de warning si se excede).
 
 ## Stack
@@ -50,7 +50,9 @@ src/main/resources/
 | `DB_HOST` / `DB_PORT` / `DB_NAME` / `DB_USER` / `DB_PASSWORD` | `localhost` / `5432` / `tallerpro_report` / `tallerpro` / `tallerpro` | Conexión a PostgreSQL |
 | `KAFKA_BOOTSTRAP_SERVERS` | `localhost:9092` | Broker(s) Kafka |
 | `AZURE_TENANT_ID` | `tenant-id` | Tenant de Azure AD (issuer del JWT) |
-| `AZURE_REPORT_API_CLIENT_ID` | `api-client-id` | Client ID de la App Registration (audience del JWT) |
+| `AZURE_API_CLIENT_ID` | `api-client-id` | Client ID de la App Registration (audience del JWT), el mismo para todos los MS |
+| `TALLERPRO_JWT_ENABLED` | `true` | `false` solo en desarrollo local sin tenant (usuario ficticio con `TALLERPRO_DEV_ROLES`, default `Admin`) |
+| `SERVER_PORT` | `8085` | |
 
 ### Levantar
 
@@ -73,7 +75,9 @@ Ver `compose-report-fragment.yml` para integrarlo en el `compose-apps.yml` (ec2-
 
 ## Endpoints principales
 
-Todos requieren `Authorization: Bearer <JWT>` con rol **Admin** (validado contra Azure AD).
+Todos requieren `Authorization: Bearer <JWT>` con rol **Admin** o **JefeTaller** (validado contra Azure AD). Sin token → 401; otro rol → 403.
+
+Ejecución local sin Postgres/Kafka: `./mvnw spring-boot:test-run -Dspring-boot.run.profiles=test "-Dspring-boot.run.arguments=--tallerpro.security.jwt-enabled=false"`
 
 | Método | Ruta | Descripción |
 |---|---|---|
