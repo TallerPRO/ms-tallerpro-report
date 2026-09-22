@@ -16,12 +16,18 @@ public interface OrderStateRepository extends JpaRepository<OrderState, String> 
 
     Optional<OrderState> findByOrderIdAndTallerId(String orderId, String tallerId);
 
-    /** Ordenes activas (no finales) agrupadas por estado, opcionalmente filtradas por taller. */
+    /**
+     * Ordenes activas (no finales) agrupadas por estado, opcionalmente filtradas por taller.
+     *
+     * Los `cast(...)` evitan el "could not determine data type" de PostgreSQL
+     * cuando el filtro llega nulo: un parametro que solo aparece en `:p is null`
+     * no tiene contexto para inferir su tipo. H2 (los tests) si lo tolera.
+     */
     @Query("""
             select os.tallerId as tallerId, os.status as status, count(os) as total
             from OrderState os
             where os.status not in ('ENTREGADA', 'ANULADA')
-              and (:tallerId is null or os.tallerId = :tallerId)
+              and (cast(:tallerId as String) is null or os.tallerId = :tallerId)
             group by os.tallerId, os.status
             """)
     List<ActiveCountProjection> countActiveByStatus(@Param("tallerId") String tallerId);
@@ -32,8 +38,8 @@ public interface OrderStateRepository extends JpaRepository<OrderState, String> 
             where os.status = :finalStatus
               and os.receivedAt is not null
               and os.deliveredAt is not null
-              and (:tallerId is null or os.tallerId = :tallerId)
-              and (:since is null or os.deliveredAt >= :since)
+              and (cast(:tallerId as String) is null or os.tallerId = :tallerId)
+              and (cast(:since as Instant) is null or os.deliveredAt >= :since)
             """)
     List<OrderState> findCompletedForDwellTime(@Param("finalStatus") OrderStatus finalStatus,
                                                 @Param("tallerId") String tallerId,

@@ -27,7 +27,7 @@ import java.util.Map;
  *  - Concurrency > 1: el procesamiento es paralelo entre particiones,
  *    por lo que un pico de eventos no genera cola de espera larga
  *    (ayuda a cumplir el desfase maximo de 5s).
- *  - AckMode.RECORD: se confirma cada registro individualmente tras
+ *  - AckMode.MANUAL_IMMEDIATE: el listener confirma cada registro tras
  *    persistirlo, evitando reprocesos masivos ante un fallo puntual.
  *  - Reintentos acotados (3) con backoff fijo y luego DLT
  *    (jobs.events.DLT), igual que el resto de consumidores Kafka del
@@ -66,7 +66,11 @@ public class KafkaConsumerConfig {
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory);
         factory.setConcurrency(3);
-        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.RECORD);
+        // MANUAL_IMMEDIATE y no RECORD: el listener recibe un `Acknowledgment` y
+        // confirma el offset el mismo. Con RECORD, Spring Kafka no inyecta ese
+        // argumento y todo mensaje termina en el DLT ("No Acknowledgment available
+        // as an argument"). Los tests no lo detectan: no levantan el contenedor.
+        factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL_IMMEDIATE);
 
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(kafkaOperations,
                 (record, ex) -> new org.apache.kafka.common.TopicPartition("jobs.events.DLT", record.partition()));
