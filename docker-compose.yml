@@ -1,0 +1,54 @@
+# ms-tallerpro-report + su PostgreSQL (esquema por Flyway). Requiere la infraestructura
+# levantada antes (../docker-compose.infra.yml): red tallerpro-net y Kafka.
+#
+#   docker compose up -d --build
+name: tallerpro-report
+
+services:
+  ms-tallerpro-report:
+    build: .
+    image: tallerpro/ms-tallerpro-report:latest
+    container_name: ms-tallerpro-report
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    environment:
+      DB_HOST: db-report
+      DB_PORT: 5432
+      DB_NAME: tallerpro_report
+      DB_USER: tallerpro
+      DB_PASSWORD: ${REPORT_DB_PASSWORD:-tallerpro}
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
+      TALLERPRO_JWT_ENABLED: ${TALLERPRO_JWT_ENABLED:-false}
+      AZURE_TENANT_ID: ${AZURE_TENANT_ID:-tenant-id}
+      AZURE_API_CLIENT_ID: ${AZURE_API_CLIENT_ID:-api-client-id}
+    depends_on:
+      db-report:
+        condition: service_healthy
+    networks:
+      - tallerpro-net
+
+  db-report:
+    image: postgres:16-alpine
+    container_name: db-report
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tallerpro_report
+      POSTGRES_USER: tallerpro
+      POSTGRES_PASSWORD: ${REPORT_DB_PASSWORD:-tallerpro}
+    volumes:
+      - db-report-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tallerpro -d tallerpro_report"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - tallerpro-net
+
+volumes:
+  db-report-data:
+
+networks:
+  tallerpro-net:
+    external: true

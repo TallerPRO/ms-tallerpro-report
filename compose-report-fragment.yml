@@ -13,7 +13,7 @@ services:
     volumes:
       - report-db-data:/var/lib/postgresql/data
     networks:
-      - tallerpro-net
+      - tallerpro-net         # misma red que ../docker-compose.infra.yml (kafka, rabbitmq)
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U tallerpro -d tallerpro_report"]
       interval: 5s
@@ -34,20 +34,17 @@ services:
       DB_NAME: tallerpro_report
       DB_USER: tallerpro
       DB_PASSWORD: tallerpro
-      KAFKA_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092,kafka3:9092
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS:-kafka:9092}
       AZURE_TENANT_ID: ${AZURE_TENANT_ID}
-      AZURE_REPORT_API_CLIENT_ID: ${AZURE_REPORT_API_CLIENT_ID}
+      AZURE_API_CLIENT_ID: ${AZURE_REPORT_API_CLIENT_ID}   # la app lee AZURE_API_CLIENT_ID
     ports:
       - "8085:8085"
     networks:
-      - tallerpro-net
-      - tallerpro-kafka-net   # red compartida con el compose de ec2-kafka
+      - tallerpro-net         # misma red que ../docker-compose.infra.yml (kafka, rabbitmq)
 
 volumes:
   report-db-data:
 
 networks:
   tallerpro-net:
-    external: true
-  tallerpro-kafka-net:
     external: true
